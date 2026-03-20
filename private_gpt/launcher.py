@@ -1,6 +1,7 @@
 """FastAPI app creation, logger configuration and main API routes."""
 
 import logging
+import os
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +20,20 @@ from private_gpt.server.recipes.summarize.summarize_router import summarize_rout
 from private_gpt.settings.settings import Settings
 
 logger = logging.getLogger(__name__)
+
+
+def _ui_enabled_effective() -> bool:
+    """Return whether UI mounting should be enabled at runtime.
+
+    Contract:
+      - If `PGPT_UI_ENABLED_EFFECTIVE` is set to a falsey value, return False.
+      - If the env var is missing/blank, return True (default behavior).
+      - Never raise (this function must not block API startup).
+    """
+    raw = os.environ.get("PGPT_UI_ENABLED_EFFECTIVE")
+    if raw is None or not str(raw).strip():
+        return True
+    return str(raw).strip().lower() not in {"0", "false", "no", "off"}
 
 
 def create_app(root_injector: Injector) -> FastAPI:
@@ -54,7 +69,10 @@ def create_app(root_injector: Injector) -> FastAPI:
             allow_headers=settings.server.cors.allow_headers,
         )
 
-    if settings.ui.enabled:
+    # Environment escape hatch: allow disabling UI in minimal/server-only installs
+    # without editing YAML profiles. This is particularly useful in preview/CI
+    # environments where optional UI dependencies may not be installed.
+    if settings.ui.enabled and _ui_enabled_effective():
         logger.debug("Importing the UI module")
         try:
             from private_gpt.ui.ui import PrivateGptUi
