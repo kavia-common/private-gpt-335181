@@ -16,8 +16,6 @@ import os
 
 import uvicorn
 
-# NOTE: Importing the app triggers settings loading + DI setup.
-from private_gpt.main import app
 from private_gpt.settings.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -60,6 +58,10 @@ def _apply_env_overrides() -> None:
 
 
 _apply_env_overrides()
+
+# NOTE: Importing/creating the app triggers settings loading + DI setup, and may mount
+# optional UI. Ensure env overrides are applied *before* this import.
+from private_gpt.main import app
 
 # Prefer the platform-injected PORT (preview systems), otherwise use settings.
 port = _parse_int_env("PORT") or settings().server.port
